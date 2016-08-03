@@ -32,9 +32,9 @@ class EvolveAll(BaseTask):
             inventory_items = response_dict['responses']['GET_INVENTORY']['inventory_delta']['inventory_items']
             candy_data = self._get_candy_data(inventory_items)
             evolve_list = self._sort_by_cp_iv(inventory_items)
-
+            midtier_families = set()
             # filter out non-listed pokemen and those with not enough candy
-            evolve_list = [x for x in evolve_list if self._is_evolvable(x, candy_data)]
+            evolve_list = [x for x in evolve_list if self._is_evolvable(x, candy_data, midtier_families)]
 
             # Don't evolve unless the evolvable candidates number is no less than evolve_num_min
             if len(evolve_list) < self.evolve_num_min:
@@ -179,7 +179,7 @@ class EvolveAll(BaseTask):
 
         return pokemons1 + pokemons2
 
-    def _is_evolvable(self, pokemon, candy_data):
+    def _is_evolvable(self, pokemon, candy_data, midtier_families):
         pokemon_name = pokemon[1]
         family_id = pokemon[4]
         # python list is index 0 based, thus - 1
@@ -194,15 +194,27 @@ class EvolveAll(BaseTask):
             return False
 
         # filter out those with not enough candy
+        midtier = False
         if 'Previous evolution(s)' in self.bot.pokemon_list[pokemon_idx]:
+            # We already filtered out top-tier pokemons, the one with Previous evolution(s)'
+            # attribute should be a mid-tier
             family_id = int(self.bot.pokemon_list[pokemon_idx]['Previous evolution(s)'][0]['Number'])
+            midtier = True
 
         need_candies = int(self.bot.pokemon_list[pokemon_idx]['Next Evolution Requirements']['Amount'])
         # print('{} need {} candies to evolve, currently have {}'.
         # format(pokemon_name, need_candies, candy_data[family_id]))
         if candy_data[family_id] >= need_candies:
-            candy_data[family_id] -= need_candies
-            return True
+            if midtier or (not midtier and family_id not in midtier_families):
+                candy_data[family_id] -= need_candies
+                return True
+            # else:
+            #     logger.log("{} can't be evolved at this time")
+
+        if midtier:
+            # Because the input pokemon sequence is sorted, so the earlier appeared pokemon with better potential
+            # midtier pokemon with better potential should be with higher priority
+            midtier_families.add(family_id)
         return False
 
     def _execute_pokemon_evolve(self, pokemon, cache):
