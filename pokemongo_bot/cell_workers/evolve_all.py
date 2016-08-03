@@ -204,7 +204,7 @@ class EvolveAll(BaseTask):
         need_candies = int(self.bot.pokemon_list[pokemon_idx]['Next Evolution Requirements']['Amount'])
         # print('{} need {} candies to evolve, currently have {}'.
         # format(pokemon_name, need_candies, candy_data[family_id]))
-        if candy_data[family_id] >= need_candies:
+        if need_candies > 0 and candy_data.get(family_id, 0) >= need_candies:
             if midtier or (not midtier and family_id not in midtier_families):
                 candy_data[family_id] -= need_candies
                 return True
